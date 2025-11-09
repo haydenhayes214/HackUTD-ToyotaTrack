@@ -194,7 +194,7 @@ app.get('/api/vehicles', async (req: Request, res: Response) => {
     
     // Filters
     if (params.type) filtered = filtered.filter(v => v.type === params.type);
-    if (params.make) filtered = filtered.filter(v => v.make === params.make);
+    if (params.make) filtered = filtered.filter(v => v.make?.toLowerCase() === params.make.toLowerCase());
     if (params.drivetrain) filtered = filtered.filter(v => v.drivetrain === params.drivetrain);
     if (params.fuelType) filtered = filtered.filter(v => v.fuelType === params.fuelType);
     if (params.minPrice) filtered = filtered.filter(v => v.msrp >= params.minPrice!);

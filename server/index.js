@@ -88,8 +88,8 @@ try {
     horsepower: 219,
     transmission: 'eCVT',
     fuelType: 'Hybrid',
-    image: 'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?w=800&h=600&fit=crop',
-    description: 'Versatile compact SUV with all-wheel drive and excellent efficiency.',
+    image: 'https://images.unsplash.com/photo-1617531653332-bd46c24f2068?w=1920&h=1080&fit=crop&q=90',
+    description: 'Versatile compact SUV with all-wheel drive and excellent efficiency. Perfect for adventure and daily commuting.',
     features: ['AWD-i', 'Multi-Terrain Select', 'Toyota Safety Sense 2.5+', 'Power liftgate'],
   },
   {
@@ -427,6 +427,11 @@ const DEALERS = [
   { id: 'irving-toyota', name: 'Irving Toyota', zip: '75038', city: 'Irving', state: 'TX', lat: 32.8140, lng: -96.9489, phone: '(972) 555-0103' },
 ];
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Get all vehicles
 app.get('/api/vehicles', (req, res) => {
   res.json(VEHICLES_DATA);
@@ -562,66 +567,125 @@ app.post('/api/compare', (req, res) => {
   }
 });
 
+// Helper function for fallback responses
+function generateFallbackResponse(msg, matchingVehicles, isSearchRequest, isComparisonRequest) {
+  const isGreeting = /hello|hi|hey|greetings|good morning|good afternoon|good evening/i.test(msg);
+  const isHelpRequest = /help|what can you|what do you|how|tell me|explain/i.test(msg);
+  const isFinanceQuestion = /finance|payment|lease|buy|purchase|monthly|apr|interest|afford|cost|price/i.test(msg);
+
+  if (isGreeting) {
+    return "Hello! I'm Toyota Sensei, your AI assistant. I'm here to help you find the perfect Toyota vehicle, understand financing options, and answer any questions you have about our lineup.\n\n" +
+      "I can help you:\n" +
+      "• Find vehicles that match your needs and budget\n" +
+      "• Compare different models and trims\n" +
+      "• Understand financing, leasing, and subscription options\n" +
+      "• Learn about vehicle features, specifications, and capabilities\n\n" +
+      "What would you like to explore today?";
+  } else if (isHelpRequest) {
+    return "I'm here to help! I can assist you with:\n\n" +
+      "🔍 **Vehicle Search**: Find vehicles by type, price, features, or specifications\n" +
+      "⚖️ **Comparisons**: Compare different models side-by-side\n" +
+      "💰 **Financing**: Get information about buying, leasing, and subscription options\n" +
+      "📊 **Specifications**: Learn about MPG, horsepower, features, and more\n\n" +
+      "Just ask me anything about Toyota vehicles or financing, and I'll do my best to help!";
+  } else if (isSearchRequest && matchingVehicles.length > 0) {
+    const vehicleList = matchingVehicles.slice(0, 5).map(v => 
+      `• **${v.make} ${v.model}** - $${v.price?.toLocaleString() || 'N/A'} (${v.mpg || 'N/A'} MPG, ${v.type})`
+    ).join('\n');
+    return `Great! I found ${matchingVehicles.length} vehicle(s) that match your criteria:\n\n${vehicleList}\n\n` +
+      `Would you like more details about any of these vehicles, or would you like to compare them?`;
+  } else if (isSearchRequest && matchingVehicles.length === 0) {
+    return "I couldn't find any vehicles matching those exact criteria. Here are some suggestions:\n\n" +
+      "• Try 'Show me all SUVs' or 'Find hybrid vehicles'\n" +
+      "• Search by price range: 'Cars under $40,000'\n" +
+      "• Ask about specific models: 'Tell me about the Toyota Camry'\n\n" +
+      "You can also browse our full inventory on the Vehicles page!";
+  } else if (isFinanceQuestion) {
+    return "I can help with financing questions! Here's an overview:\n\n" +
+      "**Buying:**\n" +
+      "• APR typically ranges from 2.9% to 7.9% depending on your credit score\n" +
+      "• Loan terms available from 36 to 84 months\n" +
+      "• You own the vehicle after paying off the loan\n\n" +
+      "**Leasing:**\n" +
+      "• Lower monthly payments than buying\n" +
+      "• Terms typically 24-48 months\n" +
+      "• You return the vehicle at the end of the lease\n\n" +
+      "**Subscription:**\n" +
+      "• All-inclusive monthly payment\n" +
+      "• Includes insurance and maintenance\n" +
+      "• Flexible terms with no long-term commitment\n\n" +
+      "Use the Finance page to calculate exact monthly payments based on your situation!";
+  } else if (isComparisonRequest) {
+    return "I can help you compare vehicles! To get the best comparison, please specify two vehicles you'd like to compare.\n\n" +
+      "For example:\n" +
+      "• 'Compare Toyota Camry with Honda Accord'\n" +
+      "• 'Toyota RAV4 vs Mazda CX-5'\n" +
+      "• 'Show me Camry vs Accord comparison'\n\n" +
+      "I'll provide a detailed side-by-side comparison of features, pricing, and specifications.";
+  } else {
+    return "I'm here to help! I can assist you with:\n\n" +
+      "• Finding the perfect vehicle for your needs\n" +
+      "• Comparing different models and trims\n" +
+      "• Understanding financing and payment options\n" +
+      "• Answering questions about features and specifications\n\n" +
+      "What would you like to know? Feel free to ask me anything about Toyota vehicles or financing!";
+  }
+}
+
 // AI Chatbot endpoint with intelligent vehicle filtering
 app.post('/api/chat', async (req, res) => {
   try {
     const { message, conversationHistory = [] } = req.body;
 
-    // First, try to parse query and find matching vehicles
-    const filters = parseQueryFilters(message, VEHICLES_DATA);
-    const matchingVehicles = filterVehicles(VEHICLES_DATA, filters);
-
-    // Check if this is a comparison request
-    const isComparisonRequest = /vs|versus|compared? to|compare/i.test(message);
-    const isSearchRequest = matchingVehicles.length > 0 && (
-      /show|find|search|look for|affordable|hybrid|suv|sedan|under|\$/i.test(message)
-    );
-
-    if (!process.env.OPENAI_API_KEY) {
-      // Fallback response without OpenAI
-      if (isSearchRequest && matchingVehicles.length > 0) {
-        return res.json({
-          response: `I found ${matchingVehicles.length} vehicle(s) matching your criteria. Here are the results:`,
-          vehicles: matchingVehicles,
-          action: 'search',
-          error: false,
-        });
-      }
+    if (!message || !message.trim()) {
       return res.json({
-        response: 'OpenAI API key not configured. Please add your API key to server/key.env file.',
-        error: true,
+        response: 'Please enter a message or question.',
+        error: false,
       });
     }
 
-    // Build context about vehicles
+    const msg = message.toLowerCase();
+
+    // Parse query and find matching vehicles for context
+    const filters = parseQueryFilters(message, VEHICLES_DATA);
+    const matchingVehicles = filterVehicles(VEHICLES_DATA, filters);
+
+    // Detect intent types for enhanced context
+    const isSearchRequest = /show|find|search|look for|affordable|hybrid|suv|sedan|truck|under|\$|car|cars|vehicle|vehicles/i.test(msg);
+    const isComparisonRequest = /vs|versus|compared? to|compare/i.test(message);
+
+    // Build comprehensive vehicle context
     const vehiclesContext = VEHICLES_DATA.map(v => 
-      `${v.make} ${v.model} (${v.year}): $${v.price.toLocaleString()}, ${v.mpg} MPG, ${v.type}, ${v.drivetrain}, ${v.engine}, ${v.horsepower} HP, ${v.fuelType}`
+      `${v.make} ${v.model} (${v.year || '2025'}): $${(v.price || 0).toLocaleString()}, ${v.mpg || 'N/A'} MPG, ${v.type}, ${v.drivetrain || 'FWD'}, ${v.fuelType || 'Gasoline'}, ${v.horsepower || 'N/A'} HP`
     ).join('\n');
 
-    const systemPrompt = `You are a helpful AI assistant for Toyota's vehicle shopping and finance platform. You help customers:
+    // Enhanced system prompt for ChatGPT-like responses
+    const systemPrompt = `You are Toyota Sensei, a knowledgeable and friendly AI assistant for Toyota's vehicle shopping and finance platform. You help customers find the perfect vehicle, understand financing options, and make informed decisions.
 
-1. Find the right vehicle based on their needs, budget, and preferences
-2. Compare different vehicle models (Toyota and competitors)
-3. Understand financing, leasing, and subscription options
-4. Estimate monthly payments
-5. Answer questions about features, specifications, and capabilities
-
-Available vehicles:
+**Available Vehicles:**
 ${vehiclesContext}
 
-Key information:
-- Toyota offers competitive financing with APRs typically ranging from 2.9% to 7.9% depending on credit
-- Leasing options are available with terms typically 24-48 months
-- Subscription services are available with monthly all-inclusive payments
-- Toyota Safety Sense is standard on most Toyota models
-- Hybrid models offer excellent fuel economy
-- Many models offer AWD/4WD options
+**Key Information:**
+- Toyota offers competitive financing with APR ranging from 2.9% to 7.9% depending on credit score
+- Leasing options: 24-48 month terms with lower monthly payments
+- Subscription service: All-inclusive monthly payments with insurance and maintenance
+- Toyota Safety Sense is standard on all models
+- Hybrid models offer excellent fuel economy (40-57 MPG)
+- All vehicles come with comprehensive warranties
 
-When users ask to find vehicles (e.g., "show me affordable hybrid SUVs", "find cars under $30k"), respond naturally and indicate that matching vehicles have been found.
-When users ask to compare vehicles, help them understand the differences and suggest using the compare feature.
+**Your Role:**
+- Provide natural, conversational responses like ChatGPT
+- Answer questions about vehicles, financing, features, and comparisons
+- When users ask about specific vehicles, provide detailed information from the available data
+- For financing questions, explain options clearly and help with calculations
+- Be helpful, friendly, and professional
+- If asked about vehicles not in the list, acknowledge it and suggest similar alternatives
+- Use markdown formatting for better readability (bold, lists, etc.)
+- Keep responses informative but concise (2-4 paragraphs typically)
 
-Be friendly, knowledgeable, and helpful. Always prioritize helping the customer find the right vehicle for their needs.`;
+Respond naturally and conversationally, as if you're having a friendly chat with the customer.`;
 
+    // Prepare messages for OpenAI
     const messages = [
       { role: 'system', content: systemPrompt },
       ...conversationHistory.slice(-10).map(msg => ({
@@ -631,27 +695,75 @@ Be friendly, knowledgeable, and helpful. Always prioritize helping the customer 
       { role: 'user', content: message },
     ];
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: messages,
-      temperature: 0.7,
-      max_tokens: 600,
-    });
+    let response = '';
+    let action = 'chat';
+    let vehiclesToReturn = null;
 
-    const response = completion.choices[0].message.content;
+    // Try to use OpenAI first for ChatGPT-like responses
+    if (process.env.OPENAI_API_KEY && openai) {
+      try {
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: messages,
+          temperature: 0.8, // Higher temperature for more natural responses
+          max_tokens: 500, // Increased for more detailed responses
+        });
 
-    // Return response with matching vehicles if this was a search request
+        response = completion.choices[0].message.content;
+
+        // If it's a search request and we found vehicles, include them in the response
+        if (isSearchRequest && matchingVehicles.length > 0) {
+          action = 'search';
+          vehiclesToReturn = matchingVehicles.slice(0, 10);
+          
+          // Enhance response with vehicle list if not already included
+          if (!response.toLowerCase().includes('found') && !response.toLowerCase().includes('vehicle')) {
+            const vehicleList = matchingVehicles.slice(0, 5).map(v => 
+              `**${v.make} ${v.model}** - $${v.price?.toLocaleString() || 'N/A'} (${v.mpg || 'N/A'} MPG, ${v.type})`
+            ).join('\n');
+            response += `\n\n**Matching Vehicles:**\n${vehicleList}`;
+          }
+        } else if (isComparisonRequest) {
+          action = 'compare';
+        } else if (/finance|payment|lease|apr|interest/i.test(msg)) {
+          action = 'finance';
+        }
+      } catch (openaiError) {
+        console.error('OpenAI error:', openaiError);
+        // Fallback to pattern matching if OpenAI fails
+        response = generateFallbackResponse(msg, matchingVehicles, isSearchRequest, isComparisonRequest);
+        if (isSearchRequest && matchingVehicles.length > 0) {
+          vehiclesToReturn = matchingVehicles.slice(0, 10);
+          action = 'search';
+        }
+      }
+    } else {
+      // No OpenAI key - use intelligent fallback
+      response = generateFallbackResponse(msg, matchingVehicles, isSearchRequest, isComparisonRequest);
+      if (isSearchRequest && matchingVehicles.length > 0) {
+        vehiclesToReturn = matchingVehicles.slice(0, 10);
+        action = 'search';
+      }
+    }
+
+    // Return response
     res.json({
       response,
-      vehicles: isSearchRequest ? matchingVehicles : null,
-      action: isComparisonRequest ? 'compare' : (isSearchRequest ? 'search' : 'chat'),
+      vehicles: vehiclesToReturn,
+      action: action,
       error: false,
     });
   } catch (error) {
-    console.error('OpenAI API error:', error);
+    console.error('Chat error:', error);
     res.status(500).json({
-      response: 'Sorry, I encountered an error. Please try again.',
+      response: 'I\'m sorry, I encountered an error processing your request. Please try again.\n\n' +
+        'Here are some things you can ask me:\n\n' +
+        '• "Show me hybrid SUVs"\n' +
+        '• "Find cars under $30,000"\n' +
+        '• "Compare Camry vs Accord"\n' +
+        '• "Tell me about financing options"',
       error: true,
+      errorMessage: error.message,
     });
   }
 });
@@ -768,5 +880,6 @@ app.post('/api/request-offers', (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📝 Make sure to add your OPENAI_API_KEY to server/key.env`);
+  console.log(`💡 AI Chat will use OpenAI API if key is set, otherwise uses intelligent fallback responses`);
 });
 

@@ -1,265 +1,466 @@
+/**
+ * Finance Page - Redesigned to match screenshot
+ * Left: Configure panel (vehicle, MSRP, down payment, trade-in, term, APR)
+ * Right: Results (monthly payment, total cost, comparison table)
+ */
+
 import React, { useState, useEffect, useCallback } from 'react';
 
 const API_BASE = 'http://localhost:3001/api';
 
-export function FinancePage({ vehicles, selectedVehicle }) {
-  const [scenarios, setScenarios] = useState([
-    {
-      type: 'purchase',
-      label: 'Buy',
-      price: selectedVehicle?.price || 30000,
-      downPayment: 2000,
-      apr: 5.5,
-      termMonths: 60,
-      tradeInValue: 0,
-      taxRate: 8,
-    },
-    {
-      type: 'lease',
-      label: 'Lease',
-      price: selectedVehicle?.price || 30000,
-      downPayment: 2000,
-      apr: 3.9,
-      termMonths: 36,
-      residualValue: null, // Will be calculated
-      tradeInValue: 0,
-      taxRate: 8,
-    },
-    {
-      type: 'subscription',
-      label: 'Subscribe',
-      price: selectedVehicle?.price || 30000,
-      downPayment: 500,
-      apr: 0,
-      termMonths: 36,
-      tradeInValue: 0,
-      taxRate: 8,
-    },
-  ]);
+export function FinancePage({ vehicles = [], selectedVehicle = null }) {
+  // Initialize with selected vehicle or first vehicle
+  const getInitialVehicle = () => {
+    if (selectedVehicle) return selectedVehicle;
+    if (vehicles.length > 0) return vehicles[0];
+    return null;
+  };
 
-  const [results, setResults] = useState({});
+  const initialVehicle = getInitialVehicle();
+  const [selectedVehicleId, setSelectedVehicleId] = useState(initialVehicle?.id || '');
+  const [msrp, setMsrp] = useState(initialVehicle?.price || initialVehicle?.msrp || 34350);
+  const [downPayment, setDownPayment] = useState(5000);
+  const [tradeInValue, setTradeInValue] = useState(0);
+  const [term, setTerm] = useState(60);
+  const [apr, setApr] = useState(4.9);
 
-  const calculatePayment = useCallback(async (scenario) => {
+  const [buyResult, setBuyResult] = useState(null);
+  const [leaseResult, setLeaseResult] = useState(null);
+  const [subscribeResult, setSubscribeResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  // Update MSRP when vehicle changes
+  useEffect(() => {
+    if (selectedVehicleId && vehicles.length > 0) {
+      const vehicle = vehicles.find(v => v.id === selectedVehicleId);
+      if (vehicle) {
+        setMsrp(vehicle.price || vehicle.msrp || msrp);
+      }
+    }
+  }, [selectedVehicleId, vehicles]);
+
+  // Calculate all scenarios
+  useEffect(() => {
+    calculateAllScenarios();
+  }, [msrp, downPayment, tradeInValue, term, apr]);
+
+  const calculateAllScenarios = async () => {
+    setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/calculate-payment`, {
+      // Buy
+      const buyRes = await fetch(`${API_BASE}/calculate-payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          price: scenario.price,
-          downPayment: scenario.downPayment,
-          apr: scenario.apr,
-          termMonths: scenario.termMonths,
-          isLease: scenario.type === 'lease',
-          isSubscription: scenario.type === 'subscription',
-          residualValue: scenario.residualValue,
-          tradeInValue: scenario.tradeInValue,
-          taxRate: scenario.taxRate / 100,
+          price: msrp,
+          downPayment,
+          apr,
+          termMonths: term,
+          isLease: false,
+          isSubscription: false,
+          tradeInValue,
+          taxRate: 0.08,
         }),
       });
+      const buyData = await buyRes.json();
+      setBuyResult(buyData);
 
-      const data = await response.json();
-      setResults(prev => ({
-        ...prev,
-        [scenario.type]: data,
-      }));
+      // Lease
+      const leaseRes = await fetch(`${API_BASE}/calculate-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          price: msrp,
+          downPayment,
+          apr: 3.9,
+          termMonths: 36,
+          isLease: true,
+          isSubscription: false,
+          residualValue: Math.round(msrp * 0.55),
+          tradeInValue,
+          taxRate: 0.08,
+        }),
+      });
+      const leaseData = await leaseRes.json();
+      setLeaseResult(leaseData);
+
+      // Subscribe
+      const subRes = await fetch(`${API_BASE}/calculate-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          price: msrp,
+          downPayment: 500,
+          apr: 0,
+          termMonths: 36,
+          isLease: false,
+          isSubscription: true,
+          tradeInValue,
+          taxRate: 0.08,
+        }),
+      });
+      const subData = await subRes.json();
+      setSubscribeResult(subData);
     } catch (error) {
-      console.error('Error calculating payment:', error);
+      console.error('Error calculating payments:', error);
+    } finally {
+      setLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    if (selectedVehicle) {
-      setScenarios(prev => prev.map(s => ({
-        ...s,
-        price: selectedVehicle.price,
-      })));
-    }
-  }, [selectedVehicle]);
-
-  useEffect(() => {
-    scenarios.forEach(scenario => {
-      calculatePayment(scenario);
-    });
-  }, [scenarios, calculatePayment]);
-
-  const updateScenario = (type, field, value) => {
-    setScenarios(prev => prev.map(s => {
-      if (s.type === type) {
-        return { ...s, [field]: value };
-      }
-      return s;
-    }));
   };
 
-  return (
-    <div className="space-y-6">
-      <div className="glass-card p-6">
-        <h2 className="text-3xl font-bold mb-2 text-gradient">Finance Options</h2>
-        <p className="text-gray-400 mb-6">
-          Compare buying, leasing, and subscription options for {selectedVehicle ? `${selectedVehicle.make} ${selectedVehicle.model}` : 'your vehicle'}
-        </p>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {scenarios.map((scenario, index) => (
-            <ScenarioCard
-              key={scenario.type}
-              scenario={scenario}
-              result={results[scenario.type]}
-              onUpdate={(field, value) => updateScenario(scenario.type, field, value)}
-              index={index}
-            />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ScenarioCard({ scenario, result, onUpdate, index }) {
-  const [isExpanded, setIsExpanded] = useState(index === 0);
+  const currentVehicle = vehicles.find(v => v.id === selectedVehicleId) || selectedVehicle;
 
   return (
-    <div className="glass-card glass-card-hover p-6 animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xl font-bold text-gradient">{scenario.label}</h3>
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="text-gray-400 hover:text-white transition-colors"
-        >
-          {isExpanded ? '−' : '+'}
-        </button>
-      </div>
-
-      {result && (
-        <div className="mb-4 p-4 bg-white/5 rounded-xl">
-          <div className="text-sm text-gray-400 mb-1">Monthly Payment</div>
-          <div className="text-3xl font-bold text-toyota-red">
-            ${result.monthlyPayment?.toLocaleString()}
-          </div>
-          <div className="text-xs text-gray-500 mt-2">
-            {scenario.termMonths} months • ${scenario.downPayment.toLocaleString()} down
-          </div>
-        </div>
-      )}
-
-      {isExpanded && (
-        <div className="space-y-4 animate-slide-up">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Vehicle Price
-            </label>
-            <input
-              type="number"
-              value={scenario.price}
-              onChange={(e) => onUpdate('price', parseInt(e.target.value) || 0)}
-              className="input-glass w-full"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Down Payment
-            </label>
-            <input
-              type="number"
-              value={scenario.downPayment}
-              onChange={(e) => onUpdate('downPayment', parseInt(e.target.value) || 0)}
-              className="input-glass w-full"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Trade-in Value
-            </label>
-            <input
-              type="number"
-              value={scenario.tradeInValue}
-              onChange={(e) => onUpdate('tradeInValue', parseInt(e.target.value) || 0)}
-              className="input-glass w-full"
-              placeholder="0"
-            />
-          </div>
-
-          {scenario.type !== 'subscription' && (
+    <div className="max-w-7xl mx-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Left Panel - Configure */}
+        <div className="glass-card p-8" style={{ backgroundColor: 'var(--card-bg-light)' }}>
+          <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>Configure</h2>
+          
+          <div className="space-y-6">
+            {/* Vehicle Selection */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>
+                Select Vehicle
+              </label>
+              <select
+                value={selectedVehicleId}
+                onChange={(e) => {
+                  setSelectedVehicleId(e.target.value);
+                  const vehicle = vehicles.find(v => v.id === e.target.value);
+                  if (vehicle) {
+                    setMsrp(vehicle.price || vehicle.msrp || 34350);
+                  }
+                }}
+                className="w-full px-4 py-3 rounded-lg border-2"
+                style={{
+                  backgroundColor: 'var(--bg-primary)',
+                  borderColor: 'var(--glass-border)',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                {vehicles.map(vehicle => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.year || '2024'} {vehicle.make} {vehicle.model} {vehicle.trim || ''} - ${(vehicle.price || vehicle.msrp || 0).toLocaleString()}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* MSRP */}
+            <div>
+              <label className="block text-sm font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>
+                MSRP
+              </label>
+              <div className="px-4 py-3 rounded-lg border-2 font-bold text-xl"
+                style={{
+                  backgroundColor: 'var(--glass-bg-dark)',
+                  borderColor: 'var(--toyota-red)',
+                  color: 'var(--toyota-red)',
+                }}
+              >
+                ${msrp.toLocaleString()}
+              </div>
+            </div>
+
+            {/* Down Payment */}
+            <div>
+              <label className="block text-sm font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>
+                Down Payment
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  id="down-0"
+                  name="downPayment"
+                  checked={downPayment === 0}
+                  onChange={() => setDownPayment(0)}
+                  className="w-5 h-5"
+                  style={{ accentColor: 'var(--toyota-red)' }}
+                />
+                <label htmlFor="down-0" style={{ color: 'var(--text-primary)' }}>$0</label>
+
+                <input
+                  type="radio"
+                  id="down-5000"
+                  name="downPayment"
+                  checked={downPayment === 5000}
+                  onChange={() => setDownPayment(5000)}
+                  className="w-5 h-5"
+                  style={{ accentColor: 'var(--toyota-red)' }}
+                />
+                <label htmlFor="down-5000" style={{ color: 'var(--text-primary)' }}>$5,000</label>
+
+                <input
+                  type="radio"
+                  id="down-custom"
+                  name="downPayment"
+                  checked={downPayment !== 0 && downPayment !== 5000}
+                  onChange={() => {}}
+                  className="w-5 h-5"
+                  style={{ accentColor: 'var(--toyota-red)' }}
+                />
+                <input
+                  type="number"
+                  value={downPayment !== 0 && downPayment !== 5000 ? downPayment : ''}
+                  onChange={(e) => setDownPayment(parseInt(e.target.value) || 0)}
+                  placeholder="Custom"
+                  className="flex-1 px-3 py-2 rounded-lg border"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    borderColor: 'var(--glass-border)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Trade-in Value */}
+            <div>
+              <label className="block text-sm font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>
+                Trade-in Value
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  id="trade-0"
+                  name="tradeIn"
+                  checked={tradeInValue === 0}
+                  onChange={() => setTradeInValue(0)}
+                  className="w-5 h-5"
+                  style={{ accentColor: 'var(--toyota-red)' }}
+                />
+                <label htmlFor="trade-0" style={{ color: 'var(--text-primary)' }}>$0</label>
+
+                <input
+                  type="number"
+                  value={tradeInValue !== 0 ? tradeInValue : ''}
+                  onChange={(e) => setTradeInValue(parseInt(e.target.value) || 0)}
+                  placeholder="Enter trade-in value"
+                  className="flex-1 px-3 py-2 rounded-lg border"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    borderColor: 'var(--glass-border)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Term */}
+            <div>
+              <label className="block text-sm font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>
+                Term
+              </label>
+              <div className="grid grid-cols-6 gap-2">
+                {[24, 36, 48, 60, 72, 84].map(months => (
+                  <label key={months} className="flex items-center justify-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="term"
+                      value={months}
+                      checked={term === months}
+                      onChange={(e) => setTerm(parseInt(e.target.value))}
+                      className="sr-only"
+                    />
+                    <div
+                      className={`w-full py-3 text-center rounded-lg border-2 transition-all ${
+                        term === months
+                          ? 'border-toyota-red bg-toyota-red text-white'
+                          : 'border-gray-300 bg-transparent'
+                      }`}
+                      style={{
+                        borderColor: term === months ? 'var(--toyota-red)' : 'var(--glass-border)',
+                        backgroundColor: term === months ? 'var(--toyota-red)' : 'transparent',
+                        color: term === months ? 'white' : 'var(--text-primary)',
+                      }}
+                    >
+                      {months}
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* APR */}
+            <div>
+              <label className="block text-sm font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>
                 APR (%)
               </label>
               <input
                 type="number"
                 step="0.1"
-                value={scenario.apr}
-                onChange={(e) => onUpdate('apr', parseFloat(e.target.value) || 0)}
-                className="input-glass w-full"
+                value={apr}
+                onChange={(e) => setApr(parseFloat(e.target.value) || 0)}
+                className="w-full px-4 py-3 rounded-lg border-2"
+                style={{
+                  backgroundColor: 'var(--bg-primary)',
+                  borderColor: 'var(--glass-border)',
+                  color: 'var(--text-primary)',
+                }}
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Right Panel - Results */}
+        <div className="space-y-6">
+          {/* Own the vehicle outright */}
+          {buyResult && (
+            <div className="glass-card p-8" style={{ backgroundColor: 'var(--card-bg-light)' }}>
+              <h3 className="text-xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
+                Own the vehicle outright
+              </h3>
+              
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="p-6 rounded-xl" style={{ backgroundColor: '#FEF2F2', border: '2px solid #EF4444' }}>
+                  <div className="text-sm mb-2" style={{ color: '#991B1B' }}>Monthly Payment</div>
+                  <div className="text-4xl font-bold" style={{ color: '#DC2626' }}>
+                    ${buyResult.monthlyPayment?.toLocaleString()}/mo
+                  </div>
+                </div>
+                <div className="p-6 rounded-xl" style={{ backgroundColor: '#EFF6FF', border: '2px solid #3B82F6' }}>
+                  <div className="text-sm mb-2" style={{ color: '#1E40AF' }}>Total Cost</div>
+                  <div className="text-4xl font-bold" style={{ color: '#2563EB' }}>
+                    ${buyResult.totalCost?.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              {buyResult.totalInterest && (
+                <div className="mb-4">
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: 'var(--text-secondary)' }}>Total Interest</span>
+                    <span className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      ${buyResult.totalInterest.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Term: {scenario.termMonths} months
-            </label>
-            <input
-              type="range"
-              min={scenario.type === 'lease' ? 24 : 36}
-              max={scenario.type === 'lease' ? 48 : 84}
-              step={scenario.type === 'lease' ? 6 : 12}
-              value={scenario.termMonths}
-              onChange={(e) => onUpdate('termMonths', parseInt(e.target.value))}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>{scenario.type === 'lease' ? '24' : '36'}</span>
-              <span>{scenario.type === 'lease' ? '48' : '84'}</span>
+          {/* Quick Comparison */}
+          <div className="glass-card p-8" style={{ backgroundColor: 'var(--card-bg-light)' }}>
+            <h3 className="text-xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
+              Quick Comparison
+            </h3>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b-2" style={{ borderColor: 'var(--glass-border)' }}>
+                    <th className="text-left py-3 px-4 font-semibold" style={{ color: 'var(--text-secondary)' }}></th>
+                    <th className="text-center py-3 px-4 font-semibold" style={{ color: 'var(--text-primary)' }}>Buy</th>
+                    <th className="text-center py-3 px-4 font-semibold" style={{ color: 'var(--text-primary)' }}>Lease</th>
+                    <th className="text-center py-3 px-4 font-semibold" style={{ color: 'var(--text-primary)' }}>Subscribe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b" style={{ borderColor: 'var(--glass-border)' }}>
+                    <td className="py-4 px-4 font-semibold" style={{ color: 'var(--text-secondary)' }}>Monthly Payment</td>
+                    <td className="py-4 px-4 text-center font-bold" style={{ color: 'var(--text-primary)' }}>
+                      ${buyResult?.monthlyPayment?.toLocaleString() || '---'}/mo
+                    </td>
+                    <td className="py-4 px-4 text-center font-bold" style={{ color: 'var(--text-primary)' }}>
+                      ${leaseResult?.monthlyPayment?.toLocaleString() || '---'}/mo
+                    </td>
+                    <td className="py-4 px-4 text-center font-bold" style={{ color: 'var(--text-primary)' }}>
+                      ${subscribeResult?.monthlyPayment?.toLocaleString() || '---'}/mo
+                    </td>
+                  </tr>
+                  <tr className="border-b" style={{ borderColor: 'var(--glass-border)' }}>
+                    <td className="py-4 px-4 font-semibold" style={{ color: 'var(--text-secondary)' }}>Total Cost</td>
+                    <td className="py-4 px-4 text-center" style={{ color: 'var(--text-primary)' }}>
+                      ${buyResult?.totalCost?.toLocaleString() || '---'}
+                    </td>
+                    <td className="py-4 px-4 text-center" style={{ color: 'var(--text-primary)' }}>
+                      ${leaseResult?.totalCost?.toLocaleString() || '---'}
+                    </td>
+                    <td className="py-4 px-4 text-center" style={{ color: 'var(--text-primary)' }}>
+                      ${subscribeResult?.totalCost?.toLocaleString() || '---'}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-4 px-4 font-semibold" style={{ color: 'var(--text-secondary)' }}>Best For</td>
+                    <td className="py-4 px-4 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
+                      Long-term ownership
+                    </td>
+                    <td className="py-4 px-4 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
+                      Lower payments, new car often
+                    </td>
+                    <td className="py-4 px-4 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
+                      Maximum flexibility
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
-          {scenario.type === 'lease' && result?.residualValue && (
-            <div className="p-3 bg-white/5 rounded-lg">
-              <div className="text-sm text-gray-400">Residual Value</div>
-              <div className="text-lg font-semibold">
-                ${result.residualValue.toLocaleString()}
-              </div>
-            </div>
-          )}
-
-          {result && (
-            <div className="pt-4 border-t border-white/10 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Total Cost</span>
-                <span className="text-white font-semibold">
-                  ${result.totalCost?.toLocaleString()}
-                </span>
-              </div>
-              {result.totalInterest && (
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Total Interest</span>
-                  <span className="text-white">
-                    ${result.totalInterest.toLocaleString()}
-                  </span>
+          {/* Monthly Payment Visualization */}
+          <div className="glass-card p-8" style={{ backgroundColor: 'var(--card-bg-light)' }}>
+            <h3 className="text-xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
+              Monthly Payment Visualization
+            </h3>
+            <div className="space-y-4">
+              {buyResult && (
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <span style={{ color: 'var(--text-secondary)' }}>Buy (${buyResult.monthlyPayment?.toLocaleString()}/mo)</span>
+                    <span style={{ color: 'var(--text-primary)' }}>{Math.round((buyResult.monthlyPayment / (subscribeResult?.monthlyPayment || buyResult.monthlyPayment)) * 100)}%</span>
+                  </div>
+                  <div className="w-full h-4 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--glass-bg-dark)' }}>
+                    <div
+                      className="h-full transition-all"
+                      style={{
+                        width: `${Math.round((buyResult.monthlyPayment / (subscribeResult?.monthlyPayment || buyResult.monthlyPayment)) * 100)}%`,
+                        backgroundColor: 'var(--toyota-red)',
+                      }}
+                    />
+                  </div>
                 </div>
               )}
-              {result.breakdown && (
-                <div className="mt-2 pt-2 border-t border-white/5">
-                  <div className="text-xs text-gray-500 mb-1">Breakdown:</div>
-                  {Object.entries(result.breakdown).map(([key, value]) => (
-                    <div key={key} className="flex justify-between text-xs">
-                      <span className="text-gray-500 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
-                      <span className="text-gray-300">
-                        {typeof value === 'number' ? `$${value.toLocaleString()}` : value}
-                      </span>
-                    </div>
-                  ))}
+              {leaseResult && (
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <span style={{ color: 'var(--text-secondary)' }}>Lease (${leaseResult.monthlyPayment?.toLocaleString()}/mo)</span>
+                    <span style={{ color: 'var(--text-primary)' }}>{Math.round((leaseResult.monthlyPayment / (subscribeResult?.monthlyPayment || leaseResult.monthlyPayment)) * 100)}%</span>
+                  </div>
+                  <div className="w-full h-4 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--glass-bg-dark)' }}>
+                    <div
+                      className="h-full transition-all"
+                      style={{
+                        width: `${Math.round((leaseResult.monthlyPayment / (subscribeResult?.monthlyPayment || leaseResult.monthlyPayment)) * 100)}%`,
+                        backgroundColor: '#3B82F6',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              {subscribeResult && (
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <span style={{ color: 'var(--text-secondary)' }}>Subscribe (${subscribeResult.monthlyPayment?.toLocaleString()}/mo)</span>
+                    <span style={{ color: 'var(--text-primary)' }}>100%</span>
+                  </div>
+                  <div className="w-full h-4 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--glass-bg-dark)' }}>
+                    <div
+                      className="h-full transition-all"
+                      style={{
+                        width: '100%',
+                        backgroundColor: '#10B981',
+                      }}
+                    />
+                  </div>
                 </div>
               )}
             </div>
-          )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
 export default FinancePage;
-
