@@ -66,9 +66,9 @@
   --transition-base: 220ms ease-out;
   --transition-slow: 360ms ease-out;
   
-  /* Typography */
-  --font-display: 'Poppins', 'Inter Display', system-ui, sans-serif;
-  --font-body: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  /* Typography - Toyota Type Style */
+  --font-display: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  --font-body: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;

@@ -20,8 +20,9 @@ export default {
         border: 'rgba(255, 255, 255, 0.1)',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Montserrat', 'system-ui', 'sans-serif'],
+        sans: ['Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        display: ['Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        body: ['Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
       },
       backdropBlur: {
         xs: '2px',

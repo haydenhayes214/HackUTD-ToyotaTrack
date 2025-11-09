@@ -156,6 +156,26 @@ export default function MessageBubble({ message }) {
                     code: ({ children }) => (
                       <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">{children}</code>
                     ),
+                    a: ({ href, children, ...props }) => {
+                      // Prevent navigation for internal links or if href is undefined
+                      const handleClick = (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Only allow external links to open in new tab
+                        if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+                          window.open(href, '_blank', 'noopener,noreferrer');
+                        }
+                      };
+                      return (
+                        <span 
+                          className="text-[#EB0A1E] underline cursor-pointer"
+                          onClick={handleClick}
+                          {...props}
+                        >
+                          {children}
+                        </span>
+                      );
+                    },
                   }}
                 >
                   {content}

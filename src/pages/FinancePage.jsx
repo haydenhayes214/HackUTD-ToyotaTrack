@@ -18,13 +18,24 @@ export default function FinancePage() {
   const [termMonths, setTermMonths] = useState(60);
   const [tradeInValue, setTradeInValue] = useState(0);
   const [monthlyIncome, setMonthlyIncome] = useState(0);
+  const [configurationName, setConfigurationName] = useState("");
 
   useEffect(() => {
+    // Log the vehicle name when the page loads or vehicle changes
+    console.log("Finance Page - Vehicle:", vehicleModel);
+    console.log("Finance Page - Vehicle ID:", vehicleId);
+    console.log("Finance Page - Vehicle Price:", initialPrice);
+    
+    // Set default configuration name when vehicle changes
+    if (vehicleModel) {
+      setConfigurationName(`${vehicleModel} - ${new Date().toLocaleDateString()}`);
+    }
+    
     if (initialPrice) {
       setVehiclePrice(initialPrice);
       setDownPayment(Math.min(5000, initialPrice * 0.1));
     }
-  }, [initialPrice]);
+  }, [initialPrice, vehicleModel, vehicleId]);
 
   const calculateMonthlyPayment = () => {
     const principal = vehiclePrice - downPayment - tradeInValue;
@@ -62,12 +73,14 @@ export default function FinancePage() {
       monthlyPayment: monthlyPayment,
       totalCost: totalCost,
       tradeInValue: tradeInValue,
-      configurationName: `${vehicleModel} - ${new Date().toLocaleDateString()}`,
+      configurationName: configurationName.trim() || `${vehicleModel} - ${new Date().toLocaleDateString()}`,
       createdAt: new Date().toISOString(),
     };
     configs.push(newConfig);
     localStorage.setItem("financeConfigs", JSON.stringify(configs));
     alert("Configuration saved to My Garage!");
+    // Reset the name field after saving
+    setConfigurationName(`${vehicleModel} - ${new Date().toLocaleDateString()}`);
   };
 
   // Budget health check
@@ -162,9 +175,26 @@ export default function FinancePage() {
                 </div>
               </div>
 
+              {/* Configuration Name Input */}
+              <div className="mt-6">
+                <label className="block text-sm font-semibold text-[#1C1C1C] mb-2">
+                  Configuration Name
+                </label>
+                <input
+                  type="text"
+                  value={configurationName}
+                  onChange={(e) => setConfigurationName(e.target.value)}
+                  placeholder={`${vehicleModel} - ${new Date().toLocaleDateString()}`}
+                  className="w-full px-4 py-3 neumorphic-inset rounded-xl text-[#1C1C1C] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#EB0A1E] focus:ring-opacity-50"
+                />
+                <p className="text-xs text-gray-600 mt-1">
+                  Customize the name for this configuration in My Garage
+                </p>
+              </div>
+
               <button
                 onClick={handleSaveConfiguration}
-                className="toyota-red-button w-full py-3 text-white font-semibold mt-6 flex items-center justify-center gap-2"
+                className="toyota-red-button w-full py-3 text-white font-semibold mt-4 flex items-center justify-center gap-2"
               >
                 <Save className="w-4 h-4" />
                 Save to My Garage

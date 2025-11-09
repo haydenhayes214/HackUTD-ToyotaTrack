@@ -263,4 +263,4 @@ This project is licensed under the MIT License.
 
 ---
 
-**Built with ❤️ for HackUTD 2025**
+**Built for HackUTD 2025**

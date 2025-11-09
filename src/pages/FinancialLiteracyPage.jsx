@@ -597,7 +597,7 @@ export default function FinancialLiteracyPage() {
                           </motion.div>
                         )}
                       </div>
-                      <h3 className="text-2xl font-bold text-[#1C1C1C] mb-6">
+                      <h3 className="text-2xl font-bold text-black mb-6">
                         {currentQuestion.question}
                       </h3>
                     </div>
@@ -608,17 +608,17 @@ export default function FinancialLiteracyPage() {
                         const isCorrect = index === currentQuestion.correct;
                         const showResult = showAnswer;
 
-                        let buttonClass = "neumorphic-button text-left p-4 w-full transition-all";
+                        let buttonClass = "neumorphic-button text-black text-left p-4 w-full transition-all";
                         if (showResult) {
                           if (isCorrect) {
-                            buttonClass = "bg-green-100 border-2 border-green-500 text-green-800 text-left p-4 w-full";
+                            buttonClass = "bg-green-100 border-2 border-green-500 text-black text-left p-4 w-full";
                           } else if (isSelected && !isCorrect) {
-                            buttonClass = "bg-red-100 border-2 border-red-500 text-red-800 text-left p-4 w-full";
+                            buttonClass = "bg-red-100 border-2 border-red-500 text-black text-left p-4 w-full";
                           } else {
-                            buttonClass = "neumorphic-inset text-gray-500 text-left p-4 w-full";
+                            buttonClass = "neumorphic-inset text-black text-left p-4 w-full";
                           }
                         } else if (isSelected) {
-                          buttonClass = "shadow-[inset_4px_4px_8px_#bebebe,inset_-4px_-4px_8px_#ffffff] bg-[#EB0A1E] bg-opacity-10 border-2 border-[#EB0A1E] text-[#1C1C1C] text-left p-4 w-full";
+                          buttonClass = "shadow-[inset_4px_4px_8px_#bebebe,inset_-4px_-4px_8px_#ffffff] bg-[#EB0A1E] bg-opacity-10 border-2 border-[#EB0A1E] text-black text-left p-4 w-full";
                         }
 
                         return (
@@ -641,7 +641,7 @@ export default function FinancialLiteracyPage() {
                                 {showResult && isSelected && !isCorrect && <X className="w-4 h-4" />}
                                 {!showResult && isSelected && <Check className="w-4 h-4" />}
                               </div>
-                              <span className="font-medium">{option}</span>
+                              <span className="font-medium text-black">{option}</span>
                             </div>
                           </motion.button>
                         );

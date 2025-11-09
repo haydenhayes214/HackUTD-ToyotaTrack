@@ -2,8 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom fonts - Poppins for display, Inter Variable for body */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+/* Toyota Type Font - Using similar clean sans-serif */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Roboto+Condensed:wght@300;400;700&display=swap');
 
 /* Theme System - Inline to avoid import issues */
 :root {
@@ -62,10 +62,15 @@
   
   body {
     @apply bg-gradient-to-br from-toyota-dark via-toyota-dark-secondary to-[#0a0d14] text-gray-100;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     min-height: 100vh;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    font-weight: 700;
   }
 
   html {
