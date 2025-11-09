@@ -5,6 +5,88 @@ import MessageBubble from "../components/chat/MessageBubble";
 
 const API_BASE = 'http://localhost:3001/api';
 
+// Hardcoded vehicles for client-side chatbot
+const HARDCODED_VEHICLES = [
+  { make: "Toyota", model: "Camry LE Hybrid", price: 30000, mpg: 52, type: "Sedan", fuelType: "Hybrid", horsepower: 208 },
+  { make: "Toyota", model: "Camry XSE", price: 35000, mpg: 32, type: "Sedan", fuelType: "Gasoline", horsepower: 301 },
+  { make: "Toyota", model: "RAV4 XLE Hybrid", price: 36000, mpg: 40, type: "SUV", fuelType: "Hybrid", horsepower: 219 },
+  { make: "Toyota", model: "RAV4 Prime XSE", price: 45000, mpg: 94, type: "SUV", fuelType: "Plug-in Hybrid", horsepower: 302 },
+  { make: "Toyota", model: "Corolla SE Hybrid", price: 24000, mpg: 53, type: "Sedan", fuelType: "Hybrid", horsepower: 121 },
+  { make: "Toyota", model: "Tundra SR5", price: 42000, mpg: 20, type: "Truck", fuelType: "Gasoline", horsepower: 389 },
+];
+
+// Simple client-side chatbot logic
+function generateClientResponse(message, vehicles = HARDCODED_VEHICLES) {
+  const msg = message.toLowerCase();
+  
+  // Greetings
+  if (/hello|hi|hey|greetings/i.test(msg)) {
+    return "Hello! I'm Toyota Sensei, your AI assistant. I can help you find vehicles, compare models, and answer questions about financing. What would you like to know?";
+  }
+  
+  // Help
+  if (/help|what can you do|what do you do/i.test(msg)) {
+    return "I can help you with:\n\n• Finding vehicles (e.g., 'show me hybrid SUVs')\n• Comparing vehicles (e.g., 'compare Camry vs RAV4')\n• Financing questions (e.g., 'tell me about financing options')\n• Vehicle specifications and features\n\nWhat would you like to know?";
+  }
+  
+  // Search for vehicles
+  if (/show|find|search|look for|hybrid|suv|sedan|truck|under|\$/i.test(msg)) {
+    let filtered = [...vehicles];
+    
+    if (/hybrid/i.test(msg)) {
+      filtered = filtered.filter(v => v.fuelType.toLowerCase().includes('hybrid'));
+    }
+    if (/suv/i.test(msg)) {
+      filtered = filtered.filter(v => v.type === 'SUV');
+    }
+    if (/sedan/i.test(msg)) {
+      filtered = filtered.filter(v => v.type === 'Sedan');
+    }
+    if (/truck/i.test(msg)) {
+      filtered = filtered.filter(v => v.type === 'Truck');
+    }
+    if (/under.*\$?(\d+)/i.test(msg)) {
+      const match = msg.match(/under.*\$?(\d+)/i);
+      const maxPrice = parseInt(match[1]) * 1000;
+      filtered = filtered.filter(v => v.price <= maxPrice);
+    }
+    
+    if (filtered.length === 0) {
+      return "I couldn't find any vehicles matching your criteria. Try asking for 'hybrid SUVs', 'sedans under $30,000', or 'all vehicles'.";
+    }
+    
+    const vehicleList = filtered.map(v => 
+      `**${v.model}** - $${v.price.toLocaleString()} (${v.mpg} MPG, ${v.fuelType}, ${v.horsepower} HP)`
+    ).join('\n');
+    
+    return `I found ${filtered.length} vehicle(s) matching your search:\n\n${vehicleList}\n\nWould you like more details about any of these?`;
+  }
+  
+  // Comparisons
+  if (/compare|vs|versus/i.test(msg)) {
+    return "I can help you compare vehicles! Here are some options:\n\n• **Camry LE Hybrid** vs **Camry XSE** - Hybrid efficiency vs V6 power\n• **RAV4 XLE Hybrid** vs **RAV4 Prime** - Standard hybrid vs plug-in hybrid\n• **Corolla SE Hybrid** vs **Camry LE Hybrid** - Compact vs midsize\n\nWhich comparison interests you?";
+  }
+  
+  // Financing
+  if (/finance|financing|payment|apr|interest|lease|loan/i.test(msg)) {
+    return "**Toyota Financing Options:**\n\n• **APR Range**: 2.9% to 7.9% (depending on credit score)\n• **Lease Terms**: 24-48 months with lower monthly payments\n• **Loan Terms**: 36-72 months available\n• **Down Payment**: Flexible options starting from $0\n\nWould you like to calculate payments for a specific vehicle?";
+  }
+  
+  // Specific vehicle questions
+  const vehicleMatches = vehicles.filter(v => 
+    msg.includes(v.model.toLowerCase().split(' ')[0]) || 
+    msg.includes(v.model.toLowerCase())
+  );
+  
+  if (vehicleMatches.length > 0) {
+    const vehicle = vehicleMatches[0];
+    return `**${vehicle.model}**\n\n• **Price**: $${vehicle.price.toLocaleString()}\n• **MPG**: ${vehicle.mpg} combined\n• **Type**: ${vehicle.type}\n• **Fuel Type**: ${vehicle.fuelType}\n• **Horsepower**: ${vehicle.horsepower} HP\n\nWould you like to know about financing options for this vehicle?`;
+  }
+  
+  // Default response
+  return "I'm here to help! You can ask me about:\n\n• Finding vehicles (e.g., 'show me hybrid SUVs')\n• Comparing models (e.g., 'compare Camry vs RAV4')\n• Financing information (e.g., 'tell me about financing')\n• Vehicle specifications\n\nWhat would you like to know?";
+}
+
 export default function AIChatPage() {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
@@ -39,62 +121,59 @@ export default function AIChatPage() {
     setInputMessage("");
     setIsLoading(true);
 
+    // Simulate API delay for better UX
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     try {
-      // Convert messages to the format expected by the server
-      const conversationHistory = messages.map(msg => ({
-        from: msg.role === "user" ? "user" : "bot",
-        text: msg.content,
-      }));
+      // Try to use server first, fallback to client-side if it fails
+      try {
+        const conversationHistory = messages.map(msg => ({
+          from: msg.role === "user" ? "user" : "bot",
+          text: msg.content,
+        }));
 
-      const response = await fetch(`${API_BASE}/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: userMessage,
-          conversationHistory: conversationHistory,
-        }),
-      }).catch((fetchError) => {
-        // Network error - server not reachable
-        throw new Error(`Cannot connect to server. Make sure the backend server is running on http://localhost:3001. Error: ${fetchError.message}`);
-      });
+        const response = await fetch(`${API_BASE}/chat`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: userMessage,
+            conversationHistory: conversationHistory,
+          }),
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Server error (${response.status}): ${errorText || response.statusText}`);
+        if (response.ok) {
+          const data = await response.json();
+          
+          if (!data.error) {
+            const assistantMessage = {
+              role: "assistant",
+              content: data.response || "I'm sorry, I couldn't process that request.",
+              tool_calls: data.tool_calls || [],
+            };
+            setMessages(prev => [...prev, assistantMessage]);
+            setIsLoading(false);
+            return;
+          }
+        }
+      } catch (serverError) {
+        // Server not available, use client-side fallback
+        console.log("Server not available, using client-side chatbot");
       }
 
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-      
+      // Client-side fallback
+      const response = generateClientResponse(userMessage);
       const assistantMessage = {
         role: "assistant",
-        content: data.response || "I'm sorry, I couldn't process that request.",
-        tool_calls: data.tool_calls || [],
+        content: response,
       };
-
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error("Error sending message:", error);
-      let errorMessage = "";
-      
-      if (error.message.includes("fetch")) {
-        errorMessage = "❌ Cannot connect to the server. Please ensure:\n\n" +
-          "1. The backend server is running on http://localhost:3001\n" +
-          "2. You can access it by opening http://localhost:3001/health in your browser\n" +
-          "3. There are no firewall or CORS issues\n\n" +
-          `Error details: ${error.message}`;
-      } else {
-        errorMessage = `❌ Error: ${error.message}`;
-      }
-      
       const errorResponse = {
         role: "assistant",
-        content: errorMessage,
+        content: "I'm sorry, I encountered an error. Please try again or rephrase your question.",
       };
       setMessages(prev => [...prev, errorResponse]);
     } finally {

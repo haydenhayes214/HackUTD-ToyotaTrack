@@ -14,6 +14,7 @@ export function createPageUrl(pageName) {
     Finance: '/finance',
     AIChat: '/ai-chat',
     MyGarage: '/my-garage',
+    FinancialLiteracy: '/financial-literacy',
   };
   
   return routes[pageName] || '/';

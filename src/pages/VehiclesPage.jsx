@@ -4,7 +4,123 @@ import { createPageUrl } from "@/utils";
 import { Filter, Zap, Fuel, Users, TrendingUp } from "lucide-react";
 import { motion } from "framer-motion";
 
-const API_BASE = 'http://localhost:3001/api';
+// Hardcoded Toyota vehicles data
+const HARDCODED_TOYOTA_VEHICLES = [
+  {
+    id: "TOY-2025-CAM-LE-HYB-001",
+    make: "Toyota",
+    model: "Camry LE Hybrid",
+    trim: "LE Hybrid",
+    year: 2025,
+    price: 30000,
+    msrp: 30000,
+    type: "Sedan",
+    fuelType: "Hybrid",
+    cityMpg: 51,
+    highwayMpg: 53,
+    mpg: 52,
+    seats: 5,
+    horsepower: 208,
+    image: "https://autoimage.capitalone.com/stock-media/chrome/2023-Toyota-Camry-Hybrid_LE-218-cc_2023TOC200030_01_2100_218.png",
+    features: ["Toyota Safety Sense 2.5+", "Apple CarPlay", "Android Auto", "Blind Spot Monitor", "Wireless Charging"],
+    description: "Efficient and comfortable midsize sedan with exceptional fuel economy and advanced safety features."
+  },
+  {
+    id: "TOY-2025-CAM-XSE-002",
+    make: "Toyota",
+    model: "Camry XSE",
+    trim: "XSE",
+    year: 2025,
+    price: 35000,
+    msrp: 35000,
+    type: "Sedan",
+    fuelType: "Gasoline",
+    cityMpg: 28,
+    highwayMpg: 39,
+    mpg: 32,
+    seats: 5,
+    horsepower: 301,
+    image: "https://www.buyatoyota.com/sharpr/vcr/adobe/dynamicmedia/deliver/urn:aaid:aem:a3985459-b3bc-494d-904c-84a5373bd017/image.png?",
+    features: ["Sport-tuned suspension", "JBL Audio System", "Panoramic sunroof", "Heated and ventilated seats", "Toyota Safety Sense 2.5+"],
+    description: "Sporty trim with powerful V6 engine and premium features for an engaging driving experience."
+  },
+  {
+    id: "TOY-2025-RAV-XLE-HYB-003",
+    make: "Toyota",
+    model: "RAV4 XLE Hybrid",
+    trim: "XLE Hybrid",
+    year: 2025,
+    price: 36000,
+    msrp: 36000,
+    type: "SUV",
+    fuelType: "Hybrid",
+    cityMpg: 41,
+    highwayMpg: 38,
+    mpg: 40,
+    seats: 5,
+    horsepower: 219,
+    image: "https://vehicle-images.dealerinspire.com/stock-images/thumbnails/large/chrome/28870fa1f0ff51f320c1b2f34459fbff.png",
+    features: ["AWD-i", "Multi-Terrain Select", "Toyota Safety Sense 2.5+", "Power liftgate", "Wireless Charging"],
+    description: "Versatile compact SUV with all-wheel drive and excellent efficiency for adventure-ready driving."
+  },
+  {
+    id: "TOY-2025-RAV-PRM-PHEV-004",
+    make: "Toyota",
+    model: "RAV4 Prime XSE",
+    trim: "Prime XSE",
+    year: 2025,
+    price: 45000,
+    msrp: 45000,
+    type: "SUV",
+    fuelType: "Plug-in Hybrid",
+    cityMpg: 40,
+    highwayMpg: 36,
+    mpg: 94,
+    seats: 5,
+    horsepower: 302,
+    image: "https://di-sitebuilder-assets.dealerinspire.com/Toyota/MLP/RAV4Prime/2024/Trims/SE.png",
+    features: ["EV Mode", "Fast charging", "Premium JBL Audio", "Advanced safety suite", "Panoramic sunroof"],
+    description: "Plug-in hybrid with 42 miles of electric range and powerful performance for eco-conscious drivers."
+  },
+  {
+    id: "TOY-2025-COR-SE-HYB-005",
+    make: "Toyota",
+    model: "Corolla SE Hybrid",
+    trim: "SE Hybrid",
+    year: 2025,
+    price: 24000,
+    msrp: 24000,
+    type: "Sedan",
+    fuelType: "Hybrid",
+    cityMpg: 53,
+    highwayMpg: 52,
+    mpg: 53,
+    seats: 5,
+    horsepower: 121,
+    image: "https://media.ed.edmunds-media.com/toyota/corolla-hybrid/2025/oem/2025_toyota_corolla-hybrid_sedan_se_fq_oem_1_1280.jpg",
+    features: ["Toyota Safety Sense 2.0", "7-inch touchscreen", "Apple CarPlay", "LED headlights", "Blind Spot Monitor"],
+    description: "Affordable compact car with outstanding fuel economy and modern technology features."
+  },
+  {
+    id: "TOY-2025-TUN-SR5-006",
+    make: "Toyota",
+    model: "Tundra SR5",
+    trim: "SR5",
+    year: 2025,
+    price: 42000,
+    msrp: 42000,
+    type: "Truck",
+    fuelType: "Gasoline",
+    cityMpg: 18,
+    highwayMpg: 24,
+    mpg: 20,
+    seats: 5,
+    horsepower: 389,
+    image: "https://www.buyatoyota.com/sharpr/bat/assets/img/vehicle-info/Tundra/2026/hero-image.png",
+    features: ["Toyota Safety Sense 2.5+", "14-inch touchscreen", "Apple CarPlay", "Android Auto", "Towing package", "4WD"],
+    description: "Powerful full-size pickup truck with impressive towing capacity and advanced technology."
+  }
+];
 
 export default function VehiclesPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -12,79 +128,10 @@ export default function VehiclesPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetchVehicles();
+    // Use hardcoded data instead of API
+    setVehicles(HARDCODED_TOYOTA_VEHICLES);
+    setIsLoading(false);
   }, []);
-
-  const fetchVehicles = async () => {
-    try {
-      console.log('Fetching vehicles from:', `${API_BASE}/vehicles?make=Toyota&limit=1000`);
-      // Try with make filter first (server-side filtering is more efficient)
-      let response = await fetch(`${API_BASE}/vehicles?make=Toyota&limit=1000`);
-      
-      // If that fails, try without the make filter and filter client-side
-      if (!response.ok) {
-        console.log('Server-side make filter failed, trying without filter...');
-        response = await fetch(`${API_BASE}/vehicles?limit=1000`);
-      }
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('Received data:', { 
-        hasVehicles: !!data.vehicles, 
-        isArray: Array.isArray(data),
-        dataType: typeof data,
-        keys: Object.keys(data || {})
-      });
-      
-      // Handle both response formats: { vehicles: [...] } or direct array
-      const vehiclesArray = data.vehicles || data;
-      
-      if (!Array.isArray(vehiclesArray)) {
-        console.error('Invalid vehicles data format:', vehiclesArray);
-        setVehicles([]);
-        setIsLoading(false);
-        return;
-      }
-      
-      console.log(`Received ${vehiclesArray.length} vehicles from server`);
-      
-      // Filter to only Toyota vehicles (case-insensitive) as backup
-      const toyotaVehicles = vehiclesArray.filter(v => {
-        const make = v.make || v.Make || '';
-        return make.toString().toLowerCase() === 'toyota';
-      });
-      
-      console.log(`Loaded ${toyotaVehicles.length} Toyota vehicles out of ${vehiclesArray.length} total`);
-      
-      if (toyotaVehicles.length === 0 && vehiclesArray.length > 0) {
-        console.warn('No Toyota vehicles found. Sample vehicle:', vehiclesArray[0]);
-      }
-      
-      setVehicles(toyotaVehicles);
-      setIsLoading(false);
-    } catch (error) {
-      console.error('Error fetching vehicles:', error);
-      console.error('Error details:', {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
-      });
-      // Check if it's a network error (server not running)
-      if (error.message.includes('Failed to fetch') || error.name === 'TypeError') {
-        console.error('⚠️ Backend server is not running or not accessible.');
-        console.error('Please check:');
-        console.error('1. Server is running: npm run server');
-        console.error('2. Server is on port 3001');
-        console.error('3. CORS is enabled');
-        console.error('4. Try accessing: http://localhost:3001/api/vehicles in your browser');
-      }
-      setVehicles([]);
-      setIsLoading(false);
-    }
-  };
 
   const categories = [
     { value: "all", label: "All Vehicles" },
@@ -205,19 +252,9 @@ export default function VehiclesPage() {
         ) : filteredVehicles.length === 0 ? (
           <div className="text-center py-20">
             <div className="neumorphic p-12 inline-block max-w-2xl">
-              <p className="text-xl text-gray-600 mb-4">
-                {vehicles.length === 0 && !isLoading 
-                  ? "Unable to load vehicles. Please make sure the backend server is running."
-                  : "No vehicles found matching your filters. Try selecting a different category."}
+              <p className="text-xl text-gray-600">
+                No vehicles found matching your filters. Try selecting a different category.
               </p>
-              {vehicles.length === 0 && !isLoading && (
-                <div className="text-sm text-gray-500 mt-4 space-y-2">
-                  <p>To start the server, run:</p>
-                  <code className="block bg-gray-100 px-4 py-2 rounded mt-2">npm run server</code>
-                  <p className="mt-4">Or run both frontend and backend together:</p>
-                  <code className="block bg-gray-100 px-4 py-2 rounded mt-2">npm run dev:all</code>
-                </div>
-              )}
             </div>
           </div>
         ) : (
